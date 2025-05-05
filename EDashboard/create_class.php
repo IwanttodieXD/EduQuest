@@ -1,5 +1,13 @@
 <?php
+session_start();
 include('db_connection.php');
+
+// Check if the user is logged in (assuming you store the user_id in the session after login)
+if (!isset($_SESSION['user_id'])) {
+    die("You need to be logged in to create a class.");
+}
+
+$user_id = $_SESSION['user_id']; // Get the logged-in user's ID
 
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
@@ -11,12 +19,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $desc = $_POST['description'] ?? '';
 
     if (empty($cname) || empty($section)) {
-        die("All fields are required.");
+        die("Subject and Section are required fields.");
     }
 
-    $sql = "INSERT INTO tbl_classes (class_name, section, description) VALUES (?, ?, ?)";
+    // Insert the class with the logged-in user's ID
+    $sql = "INSERT INTO tbl_classes (class_name, section, description, user_id) VALUES (?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sss", $cname, $section, $desc);
+    $stmt->bind_param("sssi", $cname, $section, $desc, $user_id);
 
     if ($stmt->execute()) {
         header("Location: teacher-home.php");

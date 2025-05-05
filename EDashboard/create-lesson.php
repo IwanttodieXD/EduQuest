@@ -49,16 +49,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // 1. Insert into tbl_announcements
-    $stmt = $conn->prepare("INSERT INTO tbl_announcements (class_id, user_id, title, description, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO tbl_lessons (class_id, user_id, title, description, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->bind_param("iisssssi", $class_id, $user_id, $title, $desc, $fileName, $filePath, $fileType, $fileSize);
 
     if (!$stmt->execute()) {
-        die("Error saving announcement: " . $stmt->error);
+        die("Error saving lesson: " . $stmt->error);
     }
 
     $ann_id = $conn->insert_id;
     $stmt->close();
-    $type = "announcement";
+    $type = "lesson";
     $posted_at = date('Y-m-d H:i:s');
 
     // this line insert in the topics
@@ -83,13 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Announcement</title>
+    <title>Lesson</title>
     <link rel="stylesheet" href="create-announcement.css">
 </head>
 <body>
     <div class="upload-container">
         <form method="POST" enctype="multipart/form-data">
-            <input type="text" name="title" class="input-field" placeholder="✏️ Title of Announcement" required />
+            <input type="text" name="title" class="input-field" placeholder="✏️ Title of Lesson" required />
             <textarea class="textarea-field" name="description" placeholder="✏️ Description" required></textarea>
 
             <div class="button-group">

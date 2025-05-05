@@ -1,10 +1,19 @@
 <?php
 session_start();
-include('db_connection.php');
+include('db_connection.php'); // Use require_once for critical files
 
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header("Location: eduquest.php?error=Please+log+in+first+>:l");
+    exit();
+}
 // Update session if class_id is passed in URL
 if (isset($_GET['class_id'])) {
-    $_SESSION['class_id'] = (int) $_GET['class_id'];
+  $_SESSION['class_id'] = (int) $_GET['class_id'];
+}
+
+if (isset($_GET['user_id'])) {
+  $_SESSION['user_id'] = (int) $_GET['user_id'];
 }
 
 // Require class_id in session
@@ -12,11 +21,16 @@ if (!isset($_SESSION['class_id'])) {
     die("No class selected.");
 }
 
-$classId = $_SESSION['class_id'];
+if (!isset($_SESSION['user_id'])) {
+  die("No user logged in.");
+}
+
+$user_id = $_SESSION['user_id'];
+$class_id = $_SESSION['class_id'];
 
 // Fetch class info
 $stmt = $conn->prepare("SELECT class_name, section FROM tbl_classes WHERE class_id = ?");
-$stmt->bind_param("i", $classId);
+$stmt->bind_param("i", $class_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $class = $result->fetch_assoc();
@@ -25,7 +39,6 @@ $className = $class['class_name'] ?? 'Subject Name';
 $section = $class['section'] ?? 'Section Name';
 
 $stmt->close();
-$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -682,9 +695,9 @@ transition: 0.2s ease;
   <header>
     <button class="menu-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="sidebar">&#9776;</button>
     <button class="logo-btn">
-      <a href="teacher-home.html"><img src="eduquest.png" alt="EduQuest Logo" width="70" height="70" style="height: auto;"></a>
+      <a href="teacher-home.php"><img src="eduquest.png" alt="EduQuest Logo" width="70" height="70" style="height: auto;"></a>
     </button>
-    <a href="create-class.html" class="join-btn">Create Class</a>
+    <a href="create_class.php" class="join-btn">Create Class</a>
     <button class="acc-btn">
       <a href="account.html"><img src="account.png" alt="User profile" width="40" height="40" style="height: auto;"></a>
     </button>
@@ -692,7 +705,7 @@ transition: 0.2s ease;
 
   <aside id="sidebar" class="hover-active">
     <nav>
-      <a href="teacher-home.html">
+      <a href="teacher-home.php">
         <span class="icon">🏠</span><span class="label">Home</span>
       </a>
       <a href="teacher-task.html">
@@ -714,7 +727,7 @@ transition: 0.2s ease;
       <h2 id="subject-title"><?= htmlspecialchars($className) ?></h2>
       <p id="subject-section"><?= htmlspecialchars($section) ?></p>
     </div>
-    <button type="submit" class="customize-btn" id="customize-btn">
+    <button class="customize-btn" id="customize-btn">
       <i class="fas fa-pen" id="customize-icon"></i>
       <span>CUSTOMIZE</span>
     </button>
@@ -722,7 +735,7 @@ transition: 0.2s ease;
   </div>
 
     <div class="filters">
-            <button class="filter-btn" onclick="window.location.href='teacher-alltopics.html'">All Topics</button>
+            <button class="filter-btn" onclick="window.location.href='teacher-alltopics.php'">All Topics</button>
             <button class="filter-btn" onclick="window.location.href='teacher-act.html'">Activities</button>
             <button class="filter-btn" onclick="window.location.href='teacher-People.html'">People</button>
           </div>
@@ -739,7 +752,7 @@ transition: 0.2s ease;
               <button class="filter-btn" onclick="window.location.href='createass.php?class_id=<?= $_SESSION['class_id'] ?>'">Assignment</button>
               <button class="filter-btn" id="quiz-modal-btn">Quizzes</button>
               <button class="filter-btn" onclick="window.location.href='create-activity.php?class_id=<?= $_SESSION['class_id'] ?>'">Activities</button>
-              <button class="filter-btn" onclick="window.location.href='create-announcement.html'" style="cursor: pointer;">Lessons</button>
+              <button class="filter-btn" onclick="window.location.href='create-lesson.php?class_id=<?= $_SESSION['class_id'] ?>'">Lessons</button>
               <button class="filter-btn" onclick="window.location.href='createass.html'" style="cursor: pointer;">Projects</button>
             </div>
           </div>
@@ -755,43 +768,45 @@ transition: 0.2s ease;
           </div>
         </div>
         <div class="main-content">
-          <div class="task-list">
-            <div class="task-item" role="listitem">
-              <div><strong>Lessons</strong></div>
-              <div class="task-right">
-                <a href="discussion.html" aria-label="Discuss lessons">
-                  <img src="comment.png" alt="" width="20" height="20" aria-hidden="true"/>
-                </a>
+        <!-- New Topic Display Section -->
+        <div class="task-list">
+    <?php
+    $sql = "SELECT ttc.user_id, ttc.name, tt.topic_id, tt.content_id, tt.class_id, tt.user_id, tt.type, tt.title, tt.posted_at 
+            FROM tbl_topics tt JOIN tbl_teachers ttc ON tt.user_id = ttc.user_id
+            WHERE tt.class_id = ? 
+            ORDER BY posted_at DESC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $class_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0): ?>
+      <?php while ($row = $result->fetch_assoc()): ?>
+          <?php
+          $type = strtolower($row['type']); // Normalize to lowercase
+          $targetPage = in_array($type, ['announcement', 'lesson']) ? 'teacher-anle_content.php' : 'teacher-asac_content.php';
+          ?>
+          <a href="<?= $targetPage ?>?class_id=<?= $row['class_id'] ?>&content_id=<?= $row['content_id'] ?>&type=<?= $row['type'] ?>" 
+             aria-label="View <?= htmlspecialchars($row['title']) ?> details">
+              <div class="task-item" role="listitem">
+                  <div><strong><?= ucfirst($row['name']) ?> posted a new <?= ucfirst($row['type']) ?>: </strong><?= htmlspecialchars($row['title']) ?></div>
+                  <h4>Posted at: <?= htmlspecialchars($row['posted_at']) ?></h4>
+                  <div class="task-right">
+                      <a href="discussion.html" aria-label="Discuss lessons">
+                          <img src="comment.png" alt="" width="20" height="20" aria-hidden="true"/>
+                      </a>
+                  </div>
               </div>
-            </div>
-            <div class="task-item" role="listitem">
-              <div><strong>Quizzes</strong></div>
-              <div class="task-right">
-                <a href="quiz-details.html" aria-label="View quiz details">
-                  <img src="comment.png" alt="" width="20" height="20" aria-hidden="true"/>
-                </a>
-              </div>
-            </div>
-            <div class="task-item" role="listitem">
-              <div><strong>Announcements</strong></div>
-              <div class="task-right">
-                <a href="announcement-details.html" aria-label="View announcement">
-                  <img src="comment.png" alt="" width="20" height="20" aria-hidden="true"/>
-                </a>
-              </div>
-            </div>
-            <div class="task-item" role="listitem">
-              <div><strong>Assignments</strong></div>
-              <div class="task-right">
-                <a href="assignment-details.html" aria-label="View assignment">
-              <img src="comment.png" alt="" width="20" height="20" aria-hidden="true"/>
-            </a>
-          </div>
-        </div>
+          </a>
+      <?php endwhile; ?>
+  <?php else: ?>
+      <div class="task-item" role="listitem">
+          <strong>No topics found for this class.</strong>
+      </div>
+  <?php endif; ?>
+  
       </div>
     </div>
-  </div>
-</div>
   </section>
 
   <script>

@@ -2,13 +2,25 @@
 session_start();
 include('db_connection.php');
 
+/// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header("Location: eduquest.php?error=Please+log+in+first+>:l");
+    exit();
+}
+
 // Update session if class_id is passed in URL
 if (isset($_GET['class_id'])) {
     $_SESSION['class_id'] = (int) $_GET['class_id'];
 }
 
+// Require session values
+if (!isset($_SESSION['class_id']) || !isset($_SESSION['user_id'])) {
+    die("Missing class or user information.");
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $class_id = $_SESSION['class_id'] ?? '';
+    $user_id = $_SESSION['user_id'] ?? '';
     $title = $_POST['title'] ?? '';
     $desc = $_POST['description'] ?? '';
     $score = $_POST['score'] ?? '';
@@ -40,19 +52,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Insert into database (you must create `announcements` table first)
-    $stmt = $conn->prepare("INSERT INTO tbl_assignments (class_id, title, description, file_name, file_path, file_type, file_size, score, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("isssssiis", $class_id, $title, $desc, $fileName, $filePath, $fileType, $fileSize, $score, $deadline);
+   // 1. Insert into tbl_announcements
+   $stmt = $conn->prepare("INSERT INTO tbl_assignments (class_id, user_id, title, description, file_name, file_path, file_type, file_size, score, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+   $stmt->bind_param("iisssssiis", $class_id, $user_id, $title, $desc, $fileName, $filePath, $fileType, $fileSize, $score, $deadline);
 
-    if ($stmt->execute()) {
-        header("Location: teacher-alltopics.php");
-        exit();
-    } else {
-        echo "Error: " . $stmt->error;
-    }
+   if (!$stmt->execute()) {
+       die("Error saving assignment: " . $stmt->error);
+   }
 
-    $stmt->close();
-    $conn->close();
+   $ass_id = $conn->insert_id;
+   $stmt->close();
+   $type = "assignment";
+   $posted_at = date('Y-m-d H:i:s');
+
+   // this line insert in the topics
+   $stmt = $conn->prepare("INSERT INTO tbl_topics (content_id, class_id, user_id, type, title, posted_at) VALUES (?, ?, ?, ?, ?, ?)");
+   $stmt->bind_param("iiisss", $ass_id, $class_id, $user_id, $type, $title, $posted_at);
+
+   if (!$stmt->execute()) {
+       die("Error saving topic: " . $stmt->error);
+   }
+
+   $stmt->close();
+   $conn->close();
+
+   header("Location: teacher-alltopics.php");
+   exit();
 }
 ?>
 
@@ -86,10 +111,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="action-buttons">
-                <button class="btn close-btn" onclick="window.location.href='teacher-act.html'" style="cursor: pointer;">Close</button>
                 <button class="btn upload-main-btn">Upload</button>
             </div>
         </form>
+        <div class="action-buttons">
+                <button class="btn close-btn" onclick="window.location.href='teacher-act.html'" style="cursor: pointer;">Close</button>
+        </div>
     </div>
 </body>
 </html>

@@ -1,3 +1,15 @@
+<?php
+session_start();
+include('db_connection.php'); // Use require_once for critical files
+
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header("Location: eduquest.php?error=Please+log+in+first+>:l");
+    exit();
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -248,20 +260,18 @@
   <div class="panel">
     <h1>Classrooms</h1>
     <?php
-    include('db_connection.php');
-      
-    if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
-    }
-    
-    $sql = "SELECT class_id, class_name, section, description FROM tbl_classes";
-    $result = $conn->query($sql);
+    $user_id = $_SESSION['user_id'];
+    $sql = "SELECT class_id, class_name, section, description, user_id FROM tbl_classes WHERE user_id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $user_id); // Bind user_id as integer
+    $stmt->execute();
+    $result = $stmt->get_result();
     ?>
-                  <div class="class-panel">
-                      <?php if ($result->num_rows > 0): ?>
-                          <?php while($row = $result->fetch_assoc()): ?>
-                            <div class="class-card" role="article">
-                  <a href="teacher-alltopics.php?class_id=<?= $row['class_id'] ?>" aria-label="View <?= htmlspecialchars($row['class_name']) ?> classroom">
+    <div class="class-panel">
+        <?php if ($result->num_rows > 0): ?>
+            <?php while($row = $result->fetch_assoc()): ?>
+                <div class="class-card" role="article">
+                  <a href="teacher-alltopics.php?class_id=<?= $row['class_id'] ?>&user_id=<?= $row['user_id'] ?>"aria-label="View <?= htmlspecialchars($row['class_name']) ?> classroom">
                       <h3><?= htmlspecialchars($row['class_name']) ?></h3>
                       <h4><?= htmlspecialchars($row['section']) ?></h4>
                       <p><?= htmlspecialchars($row['description']) ?></p>
